@@ -5,9 +5,27 @@ spring:
     name: aogiri-gateway
   config:
     import: "optional:configserver:http://localhost:8888/"
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: ${services.user.url:http://127.0.0.1:8081}
+          predicates:
+            - Path=/api/v1/players/**, /api/v1/users/**
+        - id: tournament-service
+          uri: ${services.tournament.url:http://127.0.0.1:8082}
+          predicates:
+            - Path=/api/v1/tournaments/**, /api/v1/registrations/**
+        - id: match-service
+          uri: ${services.match.url:http://127.0.0.1:8083}
+          predicates:
+            - Path=/api/v1/matches/**
 
 management:
   endpoints:
     web:
       exposure:
         include: "*"
+  health:
+    redis:
+      enabled: false
