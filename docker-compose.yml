@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   # --- Databases (Database-per-Service) ---
   postgres-user:
     image: postgres:16-alpine
     container_name: postgres-user
     ports:
-      - "5432:5432"
+      - "5431:5432"
     environment:
       POSTGRES_DB: user_db
       POSTGRES_USER: Davel45
@@ -25,7 +23,7 @@ services:
     image: postgres:16-alpine
     container_name: postgres-tournament
     ports:
-      - "5433:5432"
+      - "5435:5432"
     environment:
       POSTGRES_DB: tournament_db
       POSTGRES_USER: Davel45
