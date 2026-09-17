@@ -1,0 +1,17 @@
+server:
+  port: 8888
+
+encrypt:
+  key: "my_super_secret_master_key_for_aogiri"
+
+spring:
+  application:
+    name: aogiri-config-server
+  profiles:
+    active: native
+  cloud:
+    config:
+      server:
+        native:
+
+          search-locations: file:/Users/macbook/Desktop/aogiri-configs/

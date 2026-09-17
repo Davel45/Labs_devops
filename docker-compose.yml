@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  # --- Databases (Database-per-Service) ---
+  postgres-user:
+    image: postgres:16-alpine
+    container_name: postgres-user
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: Davel45
+      POSTGRES_PASSWORD: "123321"
+    volumes:
+      - postgres_user_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U Davel45 -d user_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aogiri-net
+
+  postgres-tournament:
+    image: postgres:16-alpine
+    container_name: postgres-tournament
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: tournament_db
+      POSTGRES_USER: Davel45
+      POSTGRES_PASSWORD: "123321"
+    volumes:
+      - postgres_tournament_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U Davel45 -d tournament_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aogiri-net
+
+  postgres-match:
+    image: postgres:16-alpine
+    container_name: postgres-match
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: match_db
+      POSTGRES_USER: Davel45
+      POSTGRES_PASSWORD: "123321"
+    volumes:
+      - postgres_match_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U Davel45 -d match_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aogiri-net
+
+  # --- Message Broker ---
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: aogiri-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aogiri-net
+
+  # --- Microservices ---
+  user-service:
+    build:
+      context: .
+      dockerfile: aogiri-user/Dockerfile
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user:5432/user_db
+      SPRING_DATASOURCE_USERNAME: Davel45
+      SPRING_DATASOURCE_PASSWORD: "123321"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: user
+      SPRING_RABBITMQ_PASSWORD: password
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - aogiri-net
+
+  tournament-service:
+    build:
+      context: .
+      dockerfile: aogiri-tournament/Dockerfile
+    container_name: tournament-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-tournament:5432/tournament_db
+      SPRING_DATASOURCE_USERNAME: Davel45
+      SPRING_DATASOURCE_PASSWORD: "123321"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: user
+      SPRING_RABBITMQ_PASSWORD: password
+      SERVICES_USER_URL: http://user-service:8081
+      SERVICES_MATCH_URL: http://match-service:8083
+    depends_on:
+      postgres-tournament:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      match-service:
+        condition: service_started
+    networks:
+      - aogiri-net
+
+  match-service:
+    build:
+      context: .
+      dockerfile: aogiri-match/Dockerfile
+    container_name: match-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-match:5432/match_db
+      SPRING_DATASOURCE_USERNAME: Davel45
+      SPRING_DATASOURCE_PASSWORD: "123321"
+    depends_on:
+      postgres-match:
+        condition: service_healthy
+    networks:
+      - aogiri-net
+
+  gateway-service:
+    build:
+      context: .
+      dockerfile: aogiri-gateway/Dockerfile
+    container_name: gateway-service
+    ports:
+      - "8080:8080"
+    environment:
+      SERVICES_USER_URL: http://user-service:8081
+      SERVICES_TOURNAMENT_URL: http://tournament-service:8082
+      SPRING_CLOUD_CONFIG_ENABLED: "false"
+    depends_on:
+      user-service:
+        condition: service_started
+      tournament-service:
+        condition: service_started
+      match-service:
+        condition: service_started
+    networks:
+      - aogiri-net
+
+volumes:
+  postgres_user_data:
+  postgres_tournament_data:
+  postgres_match_data:
+  rabbitmq_data:
+
+networks:
+  aogiri-net:
+    driver: bridge
