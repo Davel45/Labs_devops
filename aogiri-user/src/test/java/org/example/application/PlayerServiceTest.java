@@ -55,7 +55,7 @@ class PlayerServiceTest {
 
         assertThat(result).isNotNull();
         assertThat(result.id()).isEqualTo(1L);
-        assertThat(result.nickname()).isEqualTo("ProGamer");
+        assertThat(result.nickname()).isEqualTo("BROKEN_NAME_FOR_CI_DEMO");
 
         verify(playerRepository).save(any(PlayerEntity.class));
 
